@@ -1,0 +1,72 @@
+# dependencies
+node_modules/
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# runtime files
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# build folders
+dist/
+build/
+
+# vite
+.vite/
+
+# coverage
+coverage/
+
+# cache
+.cache/
+
+# macOS files
+.DS_Store
+
+# windows files
+Thumbs.db
+
+# editor folders
+.vscode/
+.idea/
+
+# temporary files
+tmp/
+temp/
+
+# uploads
+uploads/
+public/uploads/
+
+# mongodb dump
+dump/
+
+# socket io debug
+*.sock
+
+# frontend
+client/node_modules/
+client/dist/
+
+# backend
+server/node_modules/
+
+# optional lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
