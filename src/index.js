@@ -24,9 +24,11 @@ app.use(cors({
 
 import userRouter from "./routers/userRouter.js"
 import requestRouter from "./routers/requestRouter.js"
+import messageRouter from "./routers/messageRouter.js"
 
 app.use("/api/v1/user", userRouter)
 app.use("/api/v1/request",requestRouter)
+app.use("/api/v1/chat",messageRouter)
 
 const PORT = process.env.PORT || 4000
 

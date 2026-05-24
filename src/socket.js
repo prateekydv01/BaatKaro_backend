@@ -1,71 +1,168 @@
-import http from "http"
-import { Server } from "socket.io"
+// backend socket.js
 
-//stores userid and socket id 
-export const onlineUsers = new Map()
+import http from "http";
+import { Server } from "socket.io";
+import { User } from "./models/userModel.js";
 
-export let io
-//exported io so that controllers can use
+export const onlineUsers = new Map();
+
+export let io;
 
 export const initializeSocket = (app) => {
 
-    const server = http.createServer(app)
-    //Creates HTTP server from Express app. socket IO works on HTTP Server
+   const server = http.createServer(app);
 
-    io = new Server(server, {
-        cors: {
-            origin: process.env.FRONTEND_URL,
-            credentials: true
-        }
-    })
+   io = new Server(server, {
+      cors: {
+         origin: process.env.FRONTEND_URL,
+         credentials: true
+      }
+   });
 
-    //Create socket IO server
+   io.on("connection", async (socket) => {
 
+      const userId =
+         socket.handshake.query.userId;
 
-    //Runs whenever new user connects.
-    //Each user will get new socket
-    io.on("connection", (socket) => {
+      if (userId) {
 
-        const userId = socket.handshake.query.userId
-        //Gets userId sent from frontend.
+         if (onlineUsers.has(userId)) {
 
-        if (userId) {
-            onlineUsers.set(userId, socket.id)
-            //maps the userId and socketId in map
-        }
+            const oldSocketId =
+               onlineUsers.get(userId);
 
+            const oldSocket =
+               io.sockets.sockets.get(oldSocketId);
 
-        console.log("User connected:", socket.id)
+            if (oldSocket) {
+               oldSocket.disconnect();
+            }
 
-       //Sends all online users to EVERY connected client.
-        io.emit(
+         }
+
+         onlineUsers.set(
+            userId,
+            socket.id
+         );
+
+         io.emit(
+            "user-online",
+            userId
+         );
+
+         io.emit(
             "online-users",
-            Array.from(onlineUsers.keys())
-        )
-       
-        //Runs when user:
-          // closes tab
-          // refreshes
-          // loses internet
-
-        socket.on("disconnect", () => {
-
-            onlineUsers.forEach((value, key) => {
-                //Removes disconnected user from online list.
-                if (value === socket.id) {
-                    onlineUsers.delete(key)
-                }
-            })
-
-
-            io.emit(
-                "online-users",
-                Array.from(onlineUsers.keys())
+            Array.from(
+               onlineUsers.keys()
             )
+         );
 
-            console.log("User disconnected")
-        })
-    })
+      }
 
-    return {server}
-}
+      console.log(
+         "User connected:",
+         socket.id
+      );
+
+      socket.on(
+         "get-online-users",
+         () => {
+
+            io.to(socket.id).emit(
+               "online-users",
+               Array.from(
+                  onlineUsers.keys()
+               )
+            );
+
+         }
+      );
+
+      // typing start
+      socket.on(
+         "typing",
+         ({ senderId, receiverId }) => {
+
+            const receiverSocketId =
+               onlineUsers.get(receiverId);
+
+            if (receiverSocketId) {
+
+               io.to(receiverSocketId).emit(
+                  "typing",
+                  senderId
+               );
+
+            }
+
+         }
+      );
+
+      // typing stop
+      socket.on(
+         "stop-typing",
+         ({ senderId, receiverId }) => {
+
+            const receiverSocketId =
+               onlineUsers.get(receiverId);
+
+            if (receiverSocketId) {
+
+               io.to(receiverSocketId).emit(
+                  "stop-typing",
+                  senderId
+               );
+
+            }
+
+         }
+      );
+
+      socket.on(
+         "disconnect",
+         async () => {
+
+            if (
+               onlineUsers.get(userId) ===
+               socket.id
+            ) {
+
+               onlineUsers.delete(userId);
+
+               const lastSeen =
+                  new Date();
+
+               await User.findByIdAndUpdate(
+                  userId,
+                  { lastSeen }
+               );
+
+               io.emit(
+                  "user-offline",
+                  {
+                     userId,
+                     lastSeen
+                  }
+               );
+
+               io.emit(
+                  "online-users",
+                  Array.from(
+                     onlineUsers.keys()
+                  )
+               );
+
+            }
+
+            console.log(
+               "User disconnected"
+            );
+
+         }
+      );
+
+   });
+
+   return { server };
+
+};
