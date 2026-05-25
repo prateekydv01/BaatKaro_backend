@@ -1,6 +1,7 @@
 import { ConnectionRequest } from "../models/requestModel.js"
 import { User } from "../models/userModel.js"
 
+
 const generateAccessAndRefreshToken = async (user) => {
 
     const accessToken = user.generateAccessToken()
@@ -322,4 +323,111 @@ export const searchUser = async (req, res) => {
         });
 
     }
+};
+
+
+
+export const getUserProfile=async(req,res)=>{
+
+try{
+
+const {id}=req.params;
+
+const currentUserId=req.user._id.toString();
+
+const user=await User.findById(id).select("-password");
+
+if(!user){
+
+return res.status(404).json({
+message:"User not found"
+});
+
+}
+
+const acceptedRequests=await ConnectionRequest.find({
+status:"accepted",
+$or:[
+{senderId:id},
+{receiverId:id}
+]
+})
+.populate("senderId","username email")
+.populate("receiverId","username email");
+
+const friends=acceptedRequests.map((request)=>{
+
+if(request.senderId._id.toString()===id){
+
+return request.receiverId;
+
+}
+
+return request.senderId;
+
+});
+
+let relationshipStatus="none";
+
+if(currentUserId===id){
+
+relationshipStatus="self";
+
+}else{
+
+const existingRequest=await ConnectionRequest.findOne({
+$or:[
+{
+senderId:currentUserId,
+receiverId:id
+},
+{
+senderId:id,
+receiverId:currentUserId
+}
+]
+}).sort({createdAt:-1});
+
+if(existingRequest){
+
+if(existingRequest.status==="accepted"){
+
+relationshipStatus="friend";
+
+}else if(
+existingRequest.status==="pending" &&
+existingRequest.senderId.toString()===currentUserId
+){
+
+relationshipStatus="pending_sent";
+
+}else if(
+existingRequest.status==="pending" &&
+existingRequest.receiverId.toString()===currentUserId
+){
+
+relationshipStatus="pending_received";
+
+}
+
+}
+
+}
+
+res.status(200).json({
+user,
+friends,
+relationshipStatus
+});
+
+}catch(error){
+
+console.log(error);
+
+res.status(500).json({
+message:"Server Error"
+});
+
+}
+
 };
