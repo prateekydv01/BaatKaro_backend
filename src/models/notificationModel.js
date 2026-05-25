@@ -14,6 +14,11 @@ const notificationSchema = new Schema({
         required: true
     },
 
+    chatId: {
+        type: Schema.Types.ObjectId,
+        ref: "Message",
+    },
+
     message: {
         type: String,
         required: true
@@ -26,4 +31,4 @@ const notificationSchema = new Schema({
 
 }, { timestamps: true })
 
-export const Notification = mongoose.model("Notification",notificationSchema)
+export const Notification = mongoose.model("Notification", notificationSchema)

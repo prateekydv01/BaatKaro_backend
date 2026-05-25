@@ -1,55 +1,231 @@
 import { Message } from "../models/messageModel.js";
-import { io, onlineUsers } from "../socket.js";
+import { io, onlineUsers, activeChats  } from "../socket.js";
+import { Notification } from "../models/notificationModel.js";
 
 export const sendMessage = async (req, res) => {
+
    try {
+
       const senderId = req.user._id;
-      const receiverId = req.params.id;
+
+      const receiverId =
+         req.params.id;
+
       const { text } = req.body;
 
-      // create message
-      const message = await Message.create({
+      // Create Message
+
+      const message =
+      await Message.create({
+
          senderId,
          receiverId,
          text
+
       });
 
-      // populate message
-      const populatedMessage = await Message.findById(message._id)
-         .populate("senderId", "username lastSeen")
-         .populate("receiverId", "username lastSeen");
+      // Populate Message
 
-      // socket ids
-      const receiverSocketId = onlineUsers.get(receiverId.toString());
-      const senderSocketId = onlineUsers.get(senderId.toString());
+      const populatedMessage =
+      await Message.findById(
+         message._id
+      )
 
-      // emit to receiver
-      if (receiverSocketId) {
-         io.to(receiverSocketId).emit(
-            "receiveMessage",
-            populatedMessage
+      .populate(
+         "senderId",
+         "username lastSeen"
+      )
+
+      .populate(
+         "receiverId",
+         "username lastSeen"
+      );
+
+      // Socket Ids
+
+      const receiverSocketId =
+         onlineUsers.get(
+            receiverId.toString()
          );
+
+      const senderSocketId =
+         onlineUsers.get(
+            senderId.toString()
+         );
+
+      // Emit To Receiver
+
+      if (receiverSocketId) {
+
+         io.to(receiverSocketId).emit(
+
+            "receiveMessage",
+
+            populatedMessage
+
+         );
+
       }
 
-      // emit to sender
+      // Emit To Sender
+
       if (senderSocketId) {
+
          io.to(senderSocketId).emit(
+
             "receiveMessage",
+
             populatedMessage
+
          );
+
+      }
+      
+      // Active Chat Check
+
+      const activeChatUser =
+         activeChats.get(
+            receiverId.toString()
+         );
+
+
+      // Notification Only If
+      // Receiver Not Inside Chat
+
+      if (
+
+         activeChatUser !==
+         senderId.toString()
+
+      ) {
+
+         // Check Existing Unread Notification
+
+         const existingNotification =
+         await Notification.findOne({
+
+            senderId,
+
+            receiverId,
+
+            message:
+               "sent you a message",
+
+            isRead:false
+
+         });
+
+         // If Exists Update It
+
+         if(existingNotification){
+
+            existingNotification.chatId =
+               message._id;
+
+            existingNotification.createdAt =
+               new Date();
+
+            await existingNotification.save();
+
+            const populatedNotification =
+            await Notification.findById(
+               existingNotification._id
+            )
+
+            .populate(
+               "senderId",
+               "username"
+            )
+
+            .populate(
+               "receiverId",
+               "username"
+            );
+
+            if(receiverSocketId){
+
+               io.to(receiverSocketId).emit(
+
+                  "update-notification",
+
+                  populatedNotification
+
+               );
+
+            }
+
+         }
+
+         // Else Create New Notification
+
+         else{
+
+            const notification =
+            await Notification.create({
+
+               senderId,
+
+               receiverId,
+
+               chatId: message._id,
+
+               message:
+                  "sent you a message"
+
+            });
+
+            const populatedNotification =
+            await Notification.findById(
+               notification._id
+            )
+
+            .populate(
+               "senderId",
+               "username"
+            )
+
+            .populate(
+               "receiverId",
+               "username"
+            );
+
+            if(receiverSocketId){
+
+               io.to(receiverSocketId).emit(
+
+                  "new-notification",
+
+                  populatedNotification
+
+               );
+
+            }
+
+         }
+
       }
 
       return res.status(201).json({
+
          message: populatedMessage
+
       });
 
-   } catch (error) {
+   }
+
+   catch (error) {
+
       console.log(error);
 
       return res.status(500).json({
-         message: `error: ${error.message}`
+
+         message:
+            `error: ${error.message}`
+
       });
+
    }
+
 };
 
 export const getMessages = async (req, res) => {

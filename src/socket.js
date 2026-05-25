@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { User } from "./models/userModel.js";
 
 export const onlineUsers = new Map();
+export const activeChats = new Map();
 
 export let io;
 
@@ -117,6 +118,34 @@ export const initializeSocket = (app) => {
 
          }
       );
+
+      // join active chat
+     socket.on(
+   "join-chat",
+   ({ userId, friendId }) => {
+
+      activeChats.set(
+         userId.toString(),
+         friendId.toString()
+      );
+
+      
+
+   }
+);
+
+      // leave active chat
+      socket.on(
+         "leave-chat",
+         (userId) => {
+
+            activeChats.delete(
+               userId.toString()
+            );
+         }
+      );
+
+      //disconnect
 
       socket.on(
          "disconnect",

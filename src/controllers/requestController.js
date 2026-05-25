@@ -1,6 +1,8 @@
 import { User } from "../models/userModel.js";
 import { ConnectionRequest } from "../models/requestModel.js";
 import { io, onlineUsers } from "../socket.js";
+import { Message } from "../models/messageModel.js";
+import { Notification } from "../models/notificationModel.js";
 
 export const sendRequest = async (req, res) => {
    try {
@@ -57,6 +59,33 @@ export const sendRequest = async (req, res) => {
       if (receiverSocketId) {
          io.to(receiverSocketId).emit("newRequest", populatedRequest);
       }
+
+      const notification =await Notification.create({
+
+            senderId,
+            receiverId,
+
+            message:"sent you a friend request"
+
+         });
+
+         const populatedNotification =
+         await Notification.findById(
+            notification._id
+         )
+         .populate(
+            "senderId",
+            "username"
+         );
+
+         if(receiverSocketId){
+
+            io.to(receiverSocketId).emit(
+               "new-notification",
+               populatedNotification
+            );
+
+         }
 
       return res.status(201).json({
          message: "Request sent successfully",
@@ -128,6 +157,34 @@ export const acceptRequest = async (req, res) => {
          io.to(receiverSocketId).emit("friendAdded", sender);
       }
 
+      const notification = await Notification.create({
+
+            senderId:req.user._id,
+
+            receiverId:request.senderId,
+
+            message:"accepted your friend request"
+
+         });
+
+         const populatedNotification =
+         await Notification.findById(
+            notification._id
+         )
+         .populate(
+            "senderId",
+            "username "
+         );
+
+         if(senderSocketId){
+
+            io.to(senderSocketId).emit(
+               "new-notification",
+               populatedNotification
+            );
+
+         }
+
       return res.status(200).json({
          message: "request accepted",
          request
@@ -166,6 +223,35 @@ export const rejectRequest = async (req, res) => {
          });
       }
 
+      const notification =
+         await Notification.create({
+
+            senderId:req.user._id,
+
+            receiverId:request.senderId,
+
+            message:"rejected your friend request"
+
+         });
+
+         const populatedNotification =
+         await Notification.findById(
+            notification._id
+         )
+         .populate(
+            "senderId",
+            "username profilePic"
+         );
+
+         if(senderSocketId){
+
+            io.to(senderSocketId).emit(
+               "new-notification",
+               populatedNotification
+            );
+
+         }
+
       return res.status(200).json({
          message: "request rejected",
          request
@@ -179,8 +265,6 @@ export const rejectRequest = async (req, res) => {
       });
    }
 };
-
-import { Message } from "../models/messageModel.js";
 
 export const getAcceptedUsers = async (req, res) => {
 
